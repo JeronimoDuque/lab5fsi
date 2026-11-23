@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Script from 'next/script';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
@@ -21,6 +22,47 @@ import {
   Sparkles,
 } from 'lucide-react';
 
+declare global {
+  interface Window {
+    paypal?: {
+      Buttons: (options: {
+        createOrder: (data: unknown, actions: {
+          order: {
+            create: (order: {
+              intent: 'CAPTURE';
+              purchase_units: Array<{
+                description: string;
+                amount: { currency_code: 'USD'; value: string };
+              }>;
+            }) => Promise<string>;
+          };
+        }) => Promise<string>;
+        onApprove: (data: { orderID: string }, actions: {
+          order: {
+            capture: () => Promise<{
+              status: string;
+              purchase_units?: Array<{
+                payments?: {
+                  captures?: Array<{ id: string; status: string; amount: { value: string } }>;
+                };
+              }>;
+            }>;
+          };
+        }) => Promise<void>;
+        onError: (error: Error) => void;
+        onCancel: () => void;
+        style: {
+          layout: 'vertical';
+          color: 'gold';
+          shape: 'rect';
+          label: 'paypal';
+          height: 48;
+        };
+      }) => { render: (selector: string) => Promise<void> };
+    };
+  }
+}
+
 export default function CheckoutPage() {
   const router = useRouter();
   const { user } = useAuth();
@@ -31,6 +73,59 @@ export default function CheckoutPage() {
   const [notes, setNotes] = useState('');
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [paypalReady, setPaypalReady] = useState(false);
+  const [paypalContainerReady, setPaypalContainerReady] = useState(false);
+
+  const paypalClientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID;
+  const usdAmount = (totalAmount / 4000).toFixed(2);
+
+  const registerCapturedOrder = async (
+    paypalOrderId: string,
+    captureId: string,
+  ) => {
+    const payRes = await fetch('/api/payments/paypal', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        amount: totalAmount,
+        simulated: false,
+        paypalOrderId,
+        captureId,
+        amountUsd: usdAmount,
+      }),
+    });
+
+    const payData = await payRes.json();
+    if (!payRes.ok) {
+      throw new Error(payData.error || 'PayPal no pudo confirmar el pago.');
+    }
+
+    const orderRes = await fetch('/api/orders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        items: items.map((i) => ({
+          dish: i.dish._id,
+          name: i.dish.name,
+          price: i.dish.price,
+          quantity: i.quantity,
+        })),
+        deliveryAddress,
+        deliveryPhone,
+        notes,
+        paymentMethod: 'paypal',
+        paypalOrderId,
+      }),
+    });
+
+    const orderData = await orderRes.json();
+    if (!orderRes.ok) {
+      throw new Error(orderData.error || 'Error al registrar el pedido.');
+    }
+
+    clearCart();
+    router.push(`/pedidos/${orderData.order._id}`);
+  };
 
   const handleProcessOrder = async (isSimulated = true) => {
     if (!user) {
@@ -314,34 +409,99 @@ export default function CheckoutPage() {
 
             {/* PayPal Integration Container */}
             <div className="space-y-3 pt-2">
+              {paypalClientId && (
+                <Script
+                  src={`https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(paypalClientId)}&currency=USD&intent=capture`}
+                  strategy="afterInteractive"
+                  onLoad={() => setPaypalReady(true)}
+                  onError={() => setError('No fue posible cargar PayPal. Revisa tu conexión e intenta nuevamente.')}
+                />
+              )}
               <div className="p-3.5 rounded-2xl bg-amber-50/80 border border-amber-200 space-y-1">
                 <div className="flex items-center gap-2 text-amber-900 font-bold text-xs">
                   <ShieldCheck className="w-4 h-4 text-amber-600" />
-                  <span>Pago Seguro con PayPal Sandbox</span>
+                  <span>Pago Seguro con PayPal</span>
                 </div>
                 <p className="text-[11px] text-amber-800 leading-relaxed">
-                  El pedido se convertirá automáticamente en una reserva activa y se enviará en tiempo real al tablero Kanban del cocinero.
+                  Se cobrará el equivalente aproximado de US${usdAmount} (COP calculado a una tasa referencial de 4000 COP por USD).
                 </p>
               </div>
 
-              {/* Action Button: PayPal Demo / Simulated Checkout */}
-              <button
-                type="button"
-                onClick={() => handleProcessOrder(true)}
-                disabled={processing}
-                className="w-full py-4 px-6 rounded-2xl font-extrabold text-slate-900 bg-[#FFC439] hover:bg-[#F4B400] shadow-md shadow-amber-500/20 flex items-center justify-center gap-2.5 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 cursor-pointer"
-              >
-                {/* PayPal Logo Text */}
-                <span className="font-serif italic text-lg font-black tracking-tighter text-[#003087]">
-                  Pay<span className="text-[#0079C1]">Pal</span>
-                </span>
-                <span className="text-sm font-bold">
-                  {processing ? 'Procesando Pago y Reserva...' : 'Pagar Ahora con PayPal (Simulación)'}
-                </span>
-              </button>
+              {paypalReady && window.paypal ? (
+                <div
+                  ref={(element) => {
+                    if (!element || paypalContainerReady) return;
+                    setPaypalContainerReady(true);
+                    window.paypal?.Buttons({
+                      style: {
+                        layout: 'vertical',
+                        color: 'gold',
+                        shape: 'rect',
+                        label: 'paypal',
+                        height: 48,
+                      },
+                      createOrder: async (_data, actions) =>
+                        actions.order.create({
+                          intent: 'CAPTURE',
+                          purchase_units: [{
+                            description: 'Pedido FastFoodUdeA',
+                            amount: {
+                              currency_code: 'USD',
+                              value: usdAmount,
+                            },
+                          }],
+                        }),
+                      onApprove: async (data, actions) => {
+                        if (!deliveryAddress.trim()) {
+                          setError('La dirección de entrega es requerida.');
+                          return;
+                        }
+                        try {
+                          setProcessing(true);
+                          setError(null);
+                          const capture = await actions.order.capture();
+                          const captureId =
+                            capture.purchase_units?.[0]?.payments?.captures?.[0]?.id;
+                          const captureStatus =
+                            capture.purchase_units?.[0]?.payments?.captures?.[0]?.status;
+
+                          if (capture.status !== 'COMPLETED' && captureStatus !== 'COMPLETED') {
+                            throw new Error('El pago no fue completado por PayPal.');
+                          }
+                          if (!captureId) {
+                            throw new Error('PayPal no devolvió el identificador de la captura.');
+                          }
+
+                          await registerCapturedOrder(data.orderID, captureId);
+                        } catch (err: any) {
+                          setError(err.message || 'Error al procesar el pago con PayPal.');
+                        } finally {
+                          setProcessing(false);
+                        }
+                      },
+                      onError: (paypalError) => {
+                        setError(paypalError.message || 'Error durante el pago con PayPal.');
+                        setProcessing(false);
+                      },
+                      onCancel: () => {
+                        setError('El pago con PayPal fue cancelado.');
+                        setProcessing(false);
+                      },
+                    }).render('#paypal-button-container');
+                  }}
+                >
+                  <div id="paypal-button-container" />
+                </div>
+              ) : (
+                <div className="w-full py-4 text-center rounded-2xl bg-slate-100 text-sm font-bold text-slate-500">
+                  {!paypalClientId
+                    ? 'Configura NEXT_PUBLIC_PAYPAL_CLIENT_ID'
+                    : 'Cargando PayPal...'}
+                </div>
+              )}
 
               <div className="text-center text-[10px] text-slate-400">
-                Modo Sandbox activo • Transacción segura e instantánea
+                Transacción procesada por PayPal • Sandbox
               </div>
             </div>
 
