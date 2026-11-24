@@ -1,11 +1,13 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
 
 export interface IOrderItemDocument {
-  dish?: mongoose.Types.ObjectId;
-  name: string;
+  book: mongoose.Types.ObjectId;
+  title: string;
   price: number;
   quantity: number;
+  format: 'fisico' | 'ebook';
   subtotal: number;
+  downloadUrl?: string;
 }
 
 export interface IOrderDocument extends Document {
@@ -14,25 +16,35 @@ export interface IOrderDocument extends Document {
   customerName: string;
   customerEmail: string;
   items: IOrderItemDocument[];
+  subtotal: number;
+  shippingCost: number;
   totalAmount: number;
-  deliveryAddress: string;
-  deliveryPhone?: string;
-  notes?: string;
+  shippingAddress: {
+    address: string;
+    city: string;
+    department?: string;
+    phone?: string;
+    notes?: string;
+  };
   paymentStatus: 'pending' | 'completed' | 'failed';
   paymentMethod: 'paypal' | 'paypal_simulated';
   paypalOrderId?: string;
-  status: 'Pendiente' | 'En preparación' | 'Listo' | 'Entregado';
+  status: 'Pendiente' | 'En Preparación' | 'Despachado' | 'Entregado' | 'Cancelado';
+  hasPhysicalItems: boolean;
+  hasEbookItems: boolean;
+  shipment?: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
 }
 
 const OrderItemSchema = new Schema<IOrderItemDocument>(
   {
-    dish: {
+    book: {
       type: Schema.Types.ObjectId,
-      ref: 'Dish',
+      ref: 'Book',
+      required: true,
     },
-    name: {
+    title: {
       type: String,
       required: true,
     },
@@ -45,10 +57,31 @@ const OrderItemSchema = new Schema<IOrderItemDocument>(
       required: true,
       min: 1,
     },
+    format: {
+      type: String,
+      enum: ['fisico', 'ebook'],
+      required: true,
+      default: 'fisico',
+    },
     subtotal: {
       type: Number,
       required: true,
     },
+    downloadUrl: {
+      type: String,
+      default: '',
+    },
+  },
+  { _id: false }
+);
+
+const ShippingAddressSchema = new Schema(
+  {
+    address: { type: String, default: '' },
+    city: { type: String, default: '' },
+    department: { type: String, default: '' },
+    phone: { type: String, default: '' },
+    notes: { type: String, default: '' },
   },
   { _id: false }
 );
@@ -76,24 +109,27 @@ const OrderSchema = new Schema<IOrderDocument>(
     items: {
       type: [OrderItemSchema],
       required: true,
-      validate: [(val: any[]) => val.length > 0, 'La orden debe tener al menos un plato'],
+      validate: [(val: any[]) => val.length > 0, 'La orden debe tener al menos un libro'],
+    },
+    subtotal: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+    shippingCost: {
+      type: Number,
+      required: true,
+      default: 0,
+      min: 0,
     },
     totalAmount: {
       type: Number,
       required: true,
       min: 0,
     },
-    deliveryAddress: {
-      type: String,
-      required: [true, 'La dirección de entrega es requerida'],
-    },
-    deliveryPhone: {
-      type: String,
-      default: '',
-    },
-    notes: {
-      type: String,
-      default: '',
+    shippingAddress: {
+      type: ShippingAddressSchema,
+      required: true,
     },
     paymentStatus: {
       type: String,
@@ -111,8 +147,20 @@ const OrderSchema = new Schema<IOrderDocument>(
     },
     status: {
       type: String,
-      enum: ['Pendiente', 'En preparación', 'Listo', 'Entregado'],
+      enum: ['Pendiente', 'En Preparación', 'Despachado', 'Entregado', 'Cancelado'],
       default: 'Pendiente',
+    },
+    hasPhysicalItems: {
+      type: Boolean,
+      default: true,
+    },
+    hasEbookItems: {
+      type: Boolean,
+      default: false,
+    },
+    shipment: {
+      type: Schema.Types.ObjectId,
+      ref: 'Shipment',
     },
   },
   {

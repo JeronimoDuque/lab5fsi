@@ -1,113 +1,93 @@
-# 🍔 FastFoodUdeA - Sistema de Reserva y Pedido de Platos en Tiempo Real
+# 📚 BookHub - Plataforma de Comercio Electrónico de Libros Físicos y E-Books
 
-Aplicación web Full-Stack moderna para la gestión de reservas y pedidos del restaurante universitario **FastFoodUdeA**, desarrollada con **Next.js 16 (App Router)**, **MongoDB** (vía Mongoose), **WebSockets (Socket.io)** y **PayPal**.
+Aplicación web Full-Stack moderna para la venta de libros electrónicos y físicos, con **control de inventario/stock en bodega**, **gestión y despacho logístico de envíos con transportadoras**, **biblioteca virtual de e-books con descarga inmediata**, pasarela de pago **PayPal Sandbox** (+ **Simulador Inmediato**), y un **Tablero Kanban de Logística en Tiempo Real con WebSockets (Socket.io)**.
+
+Desarrollada sobre **Next.js 16 (App Router)**, **React 19**, **MongoDB** (Mongoose), **Socket.io** y **Tailwind CSS 4**.
 
 ---
 
 ## 🚀 Características Principales
 
-### 👤 1. Autenticación y Roles Diferenciados (JWT)
-* **Cliente:** Acceso al menú interactivo de comidas rápidas, carrito de compras, ingreso de dirección en el campus, pasarela de pago PayPal y seguimiento en vivo de sus órdenes.
-* **Cocinero:** Acceso exclusivo al **Dashboard con Tablero Kanban**, donde gestiona los pedidos en tiempo real arrastrando tarjetas entre columnas o usando controles directos.
-* Protección de rutas en middleware y contexto global de autenticación (`/cocinero`, `/pedidos`, `/checkout`).
+### 👤 1. Autenticación y Control de Acceso Basado en Roles (RBAC)
+* **Cliente:** Acceso al catálogo interactivo de libros, carrito de compras diferenciado (físicos con flete vs e-books con envío gratis), pasarela PayPal/Simulada, seguimiento en vivo de despachos y acceso a su **Biblioteca Digital Personal** para descarga instantánea de e-books.
+* **Operador de Logística:** Acceso exclusivo al **Tablero Kanban en Tiempo Real (`/logistica`)**, donde gestiona pedidos entrantes, empaca órdenes, asigna empresas transportadoras (*Servientrega, FedEx, DHL, Coordinadora, Interrapidísimo*) con número de guía y ajusta stock en bodega en vivo.
+* **Administrador:** Control total del sistema (`/admin/libros`), creación y edición de obras, fijación de precios, ISBN, URLs de portadas y archivos descargables, y auditoría general.
+* Middleware de seguridad protegiendo rutas y tokens JWT almacenados en cookies HttpOnly seguras.
 
-### 🍕 2. Catálogo de Menú y Carrito
-* Menú universitario categorizado: **Hamburguesas**, **Pizzas**, **Salchipapas**, **Bebidas** y **Postres**.
-* Filtro dinámico por categorías y barra de búsqueda en tiempo real.
-* Carrito de compras persistente con cálculo automático de totales en Pesos Colombianos (COP).
+### 📚 2. Catálogo Híbrido, Stock y Carrito Inteligente
+* Libros disponibles en formatos: **Físico**, **E-Book (Digital)** o **Ambos**.
+* Categorización completa: *Ficción, No Ficción, Tecnología, Negocios, Ciencia, Autoayuda, Literatura y Educación*.
+* Filtro dinámico por formato, categorías y barra de búsqueda en tiempo real con debounce.
+* **Indicador de Stock en vivo:** Sincronizado mediante WebSockets; si otro usuario compra o el administrador ajusta el stock, el catálogo se actualiza automáticamente sin recargar la página.
+* Carrito de compras reactivo con persistencia local y cálculo dinámico de flete ($12.000 COP si contiene libros físicos, $0 COP para e-books 100% digitales).
 
-### 💳 3. Integración con PayPal y Reserva Automática
-* Resumen financiero detallado del pedido.
-* Integración con **PayPal Sandbox** y modo de **Simulación de Pago Inmediato** (ideal para pruebas y evaluación académica sin necesidad de cuenta de desarrollador).
-* Tras la aprobación del pago, la orden se registra automáticamente como una **reserva activa** en la base de datos y se dispara el evento en tiempo real.
+### 💳 3. Pasarela de Pagos (PayPal Sandbox + Modo Simulador)
+* Integración con **PayPal Sandbox SDK** para pagos con cuenta de desarrollador.
+* **Modo de Simulación Instantánea con 1 Clic:** Diseñado para evaluación académica y demostraciones fluidas sin necesidad de configurar cuentas externas ni ingresar tarjetas de crédito reales.
+* Validación estricta y descuento atómico de stock físico en base de datos al confirmarse el pago.
 
-### 📋 4. Tablero Kanban en Tiempo Real (Rol Cocinero)
-* Cuatro etapas operativas:
-  1. 🟡 **Pendiente:** Nuevos pedidos entrantes.
-  2. 🔵 **En preparación:** Órdenes cocinándose en los fogones.
-  3. 🟢 **Listo:** Platos empacados y listos para despacho.
-  4. 🟣 **Entregado:** Pedidos finalizados y entregados al cliente.
-* **Drag and Drop nativo:** Arrastra y suelta las tarjetas de pedidos entre columnas.
-* **Botones de avance rápido:** Controles táctiles y accesibles para pantallas móviles o tablets.
-* Alertas visuales con notificación en vivo cuando entra un nuevo pedido.
+### 🚚 4. Tablero Kanban de Logística y Envíos en Tiempo Real
+* 4 Columnas operativas con Drag & Drop y botones de avance rápido:
+  1. 🟡 **Pendiente de Alistamiento:** Órdenes pagadas en espera de separación.
+  2. 🔵 **En Preparación / Empaque:** Libros siendo embalados en almacén.
+  3. 🚚 **Despachado / Con Guía:** Asignación de transportadora y número de rastreo.
+  4. 🟢 **Entregado:** Despacho completado satisfactoriamente.
+* Alerta sonora/visual instantánea cuando un cliente realiza una compra.
+* Mini-panel de ajuste rápido de inventario físico en vivo.
 
-### 📡 5. Backend con WebSockets (Socket.io)
-* Servidor monorepo unificado (`server.js`) que integra Next.js y Socket.io en un solo puerto.
-* Sincronización instantánea bidireccional: cuando el cocinero cambia el estado de una orden en el Kanban, el cliente ve el avance inmediatamente en su pantalla de seguimiento sin recargar.
+### 📖 5. Biblioteca Digital del Lector (`/biblioteca`)
+* Panel exclusivo para clientes donde se listan todos los e-books adquiridos con enlace directo para descarga de PDF y lectura en línea.
 
 ---
 
-## 🛠️ Tecnologías Utilizadas
+## 🛠️ Tecnologías y Arquitectura
 
-* **Framework Full-Stack:** Next.js 16 (App Router) + React 19
+* **Arquitectura:** Monolito Modular Full-Stack
+* **Framework:** Next.js 16 (App Router) + React 19
 * **Estilos:** Tailwind CSS 4
-* **Base de Datos:** MongoDB (vía Mongoose) — Soporte para MongoDB Local o MongoDB Atlas
-* **Tiempo Real:** Socket.io + Socket.io-client
-* **Autenticación:** JWT (JSON Web Tokens) con cookies seguras HttpOnly y `bcryptjs`
-* **Iconografía:** Lucide React
+* **Base de Datos:** MongoDB Atlas / Local con ODM Mongoose
+* **Sockets Bidireccionales:** Socket.io (servidor unificado en `server.js`)
+* **Autenticación:** JWT (HS256) en cookies HttpOnly + `bcryptjs`
+* **Pagos:** PayPal REST API Sandbox + Simulador Instantáneo
+* **Iconos:** Lucide React
 
 ---
 
 ## 👥 Cuentas de Acceso Rápido (Demo)
 
-El sistema incluye usuarios preconfigurados con sus respectivos roles:
+En la pantalla de inicio de sesión (`/login`) encontrarás botones para autocompletar estas cuentas con un solo clic:
 
-| Rol | Correo Electrónico | Contraseña | Acceso |
+| Rol | Correo Electrónico | Contraseña | Panel Asignado |
 | :--- | :--- | :--- | :--- |
-| **👨‍🍳 Cocinero** | `cocinero@fastfoodudea.com` | `cocinero123` | Tablero Kanban (`/cocinero`) |
-| **🛍️ Cliente** | `cliente@fastfoodudea.com` | `cliente123` | Menú y Pedidos (`/menu`, `/pedidos`) |
-
-> 💡 *En la pantalla de inicio de sesión (`/login`) encontrarás botones de un solo clic para rellenar automáticamente cualquiera de estas dos cuentas.*
+| **👑 Administrador** | `admin@bookhub.com` | `admin123` | `/admin/libros` (Gestión Catálogo y Stock) |
+| **🚚 Logística** | `logistica@bookhub.com` | `logistica123` | `/logistica` (Tablero Kanban de Envíos) |
+| **📖 Cliente Lector** | `cliente@bookhub.com` | `cliente123` | `/catalogo`, `/pedidos`, `/biblioteca` |
 
 ---
 
-## 📦 Instalación y Puesta en Marcha
+## 📦 Puesta en Marcha
 
-### 1. Variables de Entorno
-El archivo `.env.local` ya se encuentra configurado para entorno local:
-
+### 1. Variables de Entorno (`.env.local`)
+Verifica tu archivo `.env.local`:
 ```env
 MONGODB_URI=mongodb://localhost:27017/fastfoodudea
-JWT_SECRET=super_secret_fastfoodudea_key_2026_jwt_auth_token
+JWT_SECRET=super_secret_bookhub_key_2026_jwt_auth_token
 PORT=3000
 NEXT_PUBLIC_SOCKET_URL=http://localhost:3000
 NEXT_PUBLIC_PAYPAL_CLIENT_ID=sb
 PAYPAL_CLIENT_SECRET=sandbox_secret_placeholder
 ```
 
-*(Si usas MongoDB Atlas, simplemente reemplaza `MONGODB_URI` con tu cadena de conexión `mongodb+srv://...`)*.
-
-### 2. Poblar la Base de Datos con Datos de Prueba (Seed)
-Asegúrate de que tu servicio de MongoDB esté iniciado (`mongod`) y ejecuta:
-
+### 2. Poblar la Base de Datos (Seed)
+Asegúrate de que MongoDB esté en ejecución y ejecuta:
 ```bash
 npm run seed
 ```
-
-*(También puedes cargar los datos haciendo clic en el botón **"Cargar Datos de Prueba (Seed)"** directamente en la página principal o en el menú).*
+*(También puedes presionar el botón **"Cargar Datos Demo (Seed)"** directamente en la página de inicio).*
 
 ### 3. Iniciar el Servidor Unificado
-Ejecuta el servidor en modo desarrollo:
-
 ```bash
 npm run dev
 ```
-
 Abre tu navegador en:
 👉 **http://localhost:3000**
-
----
-
-## 🧪 Flujo de Demostración Recomendado
-
-1. **Abrir dos ventanas o pestañas del navegador:**
-   * **Ventana 1 (Cocinero):** Inicia sesión con `cocinero@fastfoodudea.com` y entra al **Tablero Kanban Cocina**.
-   * **Ventana 2 (Cliente):** Inicia sesión con `cliente@fastfoodudea.com` en modo incógnito o en otro navegador y ve al **Menú**.
-2. **Hacer un pedido como Cliente:**
-   * Agrega platos al carrito (ej. Hamburguesa Especial + Salchipapa Costeña).
-   * Ve al Checkout, confirma la dirección en el campus y haz clic en **"Pagar Ahora con PayPal (Simulación)"**.
-   * La orden se crea y se abre la pantalla de **Seguimiento en Vivo**.
-3. **Observar la sincronización en tiempo real:**
-   * En la **Ventana del Cocinero**, el nuevo pedido aparecerá inmediatamente en la columna **"Pendiente"** con una alerta sonora/visual.
-   * Arrastra la tarjeta a **"En preparación"** y luego a **"Listo"**.
-   * Observa cómo en la **Ventana del Cliente**, el paso a paso del pedido cambia automáticamente de color e indicador en tiempo real sin recargar la página.

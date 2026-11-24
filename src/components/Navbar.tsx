@@ -7,16 +7,16 @@ import { useAuth } from '@/context/AuthContext';
 import { useCart } from '@/context/CartContext';
 import { getSocket } from '@/lib/socket';
 import {
-  UtensilsCrossed,
+  BookOpen,
   ShoppingBag,
-  User,
+  Clock,
+  Radio,
   LogOut,
-  ChefHat,
   Menu,
   X,
-  Radio,
-  Clock,
-  Sparkles,
+  Truck,
+  BookMarked,
+  Layers,
 } from 'lucide-react';
 
 export const Navbar = () => {
@@ -38,20 +38,20 @@ export const Navbar = () => {
   const isActive = (path: string) => pathname === path;
 
   return (
-    <nav className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-orange-100 shadow-xs">
+    <nav className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-indigo-100 shadow-xs">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16 items-center">
           {/* Brand Logo */}
           <Link href="/" className="flex items-center gap-2.5 group">
-            <div className="w-10 h-10 rounded-xl bg-linear-to-tr from-amber-500 to-orange-600 flex items-center justify-center text-white shadow-md shadow-orange-500/20 group-hover:scale-105 transition-transform">
-              <UtensilsCrossed className="w-5 h-5" />
+            <div className="w-10 h-10 rounded-xl bg-linear-to-tr from-indigo-600 to-violet-600 flex items-center justify-center text-white shadow-md shadow-indigo-500/20 group-hover:scale-105 transition-transform">
+              <BookOpen className="w-5 h-5" />
             </div>
             <div>
-              <span className="font-extrabold text-xl tracking-tight text-gray-900 group-hover:text-orange-600 transition-colors">
-                FastFood<span className="text-orange-600">UdeA</span>
+              <span className="font-extrabold text-xl tracking-tight text-gray-900 group-hover:text-indigo-600 transition-colors">
+                Book<span className="text-indigo-600">Hub</span>
               </span>
               <span className="hidden sm:block text-[10px] text-gray-500 font-medium tracking-wide uppercase">
-                Sabor Universitario
+                Libros & E-Books
               </span>
             </div>
           </Link>
@@ -59,41 +59,69 @@ export const Navbar = () => {
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-1 lg:gap-2">
             <Link
-              href="/menu"
+              href="/catalogo"
               className={`px-3.5 py-2 rounded-lg text-sm font-medium transition-colors ${
-                isActive('/menu')
-                  ? 'bg-orange-50 text-orange-600 font-semibold'
-                  : 'text-gray-700 hover:text-orange-600 hover:bg-orange-50/50'
+                isActive('/catalogo') || isActive('/')
+                  ? 'bg-indigo-50 text-indigo-700 font-semibold'
+                  : 'text-gray-700 hover:text-indigo-600 hover:bg-indigo-50/50'
               }`}
             >
-              Menú de Platos
+              Catálogo de Libros
             </Link>
 
             {user && (
+              <>
+                <Link
+                  href="/pedidos"
+                  className={`px-3.5 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${
+                    isActive('/pedidos')
+                      ? 'bg-indigo-50 text-indigo-700 font-semibold'
+                      : 'text-gray-700 hover:text-indigo-600 hover:bg-indigo-50/50'
+                  }`}
+                >
+                  <Clock className="w-4 h-4" />
+                  Mis Pedidos
+                </Link>
+
+                <Link
+                  href="/biblioteca"
+                  className={`px-3.5 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${
+                    isActive('/biblioteca')
+                      ? 'bg-indigo-50 text-indigo-700 font-semibold'
+                      : 'text-gray-700 hover:text-indigo-600 hover:bg-indigo-50/50'
+                  }`}
+                >
+                  <BookMarked className="w-4 h-4" />
+                  Mi Biblioteca E-books
+                </Link>
+              </>
+            )}
+
+            {(user?.role === 'logistica' || user?.role === 'admin') && (
               <Link
-                href="/pedidos"
+                href="/logistica"
                 className={`px-3.5 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${
-                  isActive('/pedidos')
-                    ? 'bg-orange-50 text-orange-600 font-semibold'
-                    : 'text-gray-700 hover:text-orange-600 hover:bg-orange-50/50'
+                  isActive('/logistica')
+                    ? 'bg-amber-500 text-white shadow-xs'
+                    : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
                 }`}
               >
-                <Clock className="w-4 h-4" />
-                Mis Pedidos
+                <Truck className="w-4 h-4" />
+                Tablero Logística en Vivo
               </Link>
             )}
 
-            {user?.role === 'cocinero' && (
+            {user?.role === 'admin' && (
               <Link
-                href="/cocinero"
+                href="/admin/libros"
                 className={`px-3.5 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${
-                  isActive('/cocinero')
-                    ? 'bg-amber-500 text-white shadow-sm'
-                    : 'bg-amber-100 text-amber-900 hover:bg-amber-200'
+                  isActive('/admin/libros')
+                    ? 'bg-purple-600 text-white shadow-xs'
+                    : 'bg-purple-50 text-purple-900 border border-purple-200 hover:bg-purple-100'
                 }`}
               >
-                <ChefHat className="w-4 h-4" />
-                Tablero Kanban Cocina
+                <Layers className="w-4 h-4" />
+                Gestión Catálogo & Stock
               </Link>
             )}
           </div>
@@ -118,8 +146,8 @@ export const Navbar = () => {
             {/* Cart Icon Button */}
             <Link
               href="/checkout"
-              className="relative p-2.5 rounded-xl bg-orange-50 hover:bg-orange-100 text-orange-600 transition-colors"
-              title="Ver Carrito y Pedido"
+              className="relative p-2.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-600 transition-colors"
+              title="Ver Carrito y Finalizar Compra"
             >
               <ShoppingBag className="w-5 h-5" />
               {totalCount > 0 && (
@@ -138,7 +166,11 @@ export const Navbar = () => {
                   </span>
                   <span
                     className={`text-[10px] uppercase font-bold tracking-wider ${
-                      user.role === 'cocinero' ? 'text-amber-600' : 'text-blue-600'
+                      user.role === 'admin'
+                        ? 'text-purple-600'
+                        : user.role === 'logistica'
+                        ? 'text-amber-600'
+                        : 'text-indigo-600'
                     }`}
                   >
                     {user.role}
@@ -156,13 +188,13 @@ export const Navbar = () => {
               <div className="flex items-center gap-2">
                 <Link
                   href="/login"
-                  className="px-3 py-1.5 text-sm font-medium text-gray-700 hover:text-orange-600 transition-colors"
+                  className="px-3 py-1.5 text-sm font-medium text-gray-700 hover:text-indigo-600 transition-colors"
                 >
-                  Entrar
+                  Ingresar
                 </Link>
                 <Link
                   href="/register"
-                  className="px-3.5 py-1.5 rounded-lg text-sm font-medium bg-orange-600 hover:bg-orange-700 text-white shadow-xs transition-colors"
+                  className="px-3.5 py-1.5 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs transition-colors"
                 >
                   Registro
                 </Link>
@@ -184,34 +216,52 @@ export const Navbar = () => {
       {mobileMenuOpen && (
         <div className="md:hidden border-t border-gray-200 bg-white px-4 pt-3 pb-5 space-y-2">
           <Link
-            href="/menu"
+            href="/catalogo"
             onClick={() => setMobileMenuOpen(false)}
-            className="block px-3 py-2 rounded-md text-base font-medium text-gray-800 hover:bg-orange-50"
+            className="block px-3 py-2 rounded-md text-base font-medium text-gray-800 hover:bg-indigo-50"
           >
-            Menú de Platos
+            Catálogo de Libros
           </Link>
           {user && (
-            <Link
-              href="/pedidos"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block px-3 py-2 rounded-md text-base font-medium text-gray-800 hover:bg-orange-50"
-            >
-              Mis Pedidos
-            </Link>
+            <>
+              <Link
+                href="/pedidos"
+                onClick={() => setMobileMenuOpen(false)}
+                className="block px-3 py-2 rounded-md text-base font-medium text-gray-800 hover:bg-indigo-50"
+              >
+                Mis Pedidos
+              </Link>
+              <Link
+                href="/biblioteca"
+                onClick={() => setMobileMenuOpen(false)}
+                className="block px-3 py-2 rounded-md text-base font-medium text-gray-800 hover:bg-indigo-50"
+              >
+                Mi Biblioteca E-books
+              </Link>
+            </>
           )}
-          {user?.role === 'cocinero' && (
+          {(user?.role === 'logistica' || user?.role === 'admin') && (
             <Link
-              href="/cocinero"
+              href="/logistica"
               onClick={() => setMobileMenuOpen(false)}
               className="block px-3 py-2 rounded-md text-base font-medium bg-amber-100 text-amber-900"
             >
-              Tablero Cocina (Kanban)
+              Tablero Logística (Kanban)
+            </Link>
+          )}
+          {user?.role === 'admin' && (
+            <Link
+              href="/admin/libros"
+              onClick={() => setMobileMenuOpen(false)}
+              className="block px-3 py-2 rounded-md text-base font-medium bg-purple-100 text-purple-900"
+            >
+              Gestión Catálogo & Stock
             </Link>
           )}
           <Link
             href="/checkout"
             onClick={() => setMobileMenuOpen(false)}
-            className="block px-3 py-2 rounded-md text-base font-medium text-orange-600"
+            className="block px-3 py-2 rounded-md text-base font-medium text-indigo-600"
           >
             Mi Carrito ({totalCount} items)
           </Link>

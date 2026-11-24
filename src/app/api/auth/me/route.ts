@@ -23,6 +23,7 @@ export async function GET(req: NextRequest) {
         email: userDoc.email,
         role: userDoc.role,
         address: userDoc.address,
+        city: userDoc.city,
         phone: userDoc.phone,
       },
     });

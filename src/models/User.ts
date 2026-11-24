@@ -5,10 +5,12 @@ export interface IUserDocument extends Document {
   name: string;
   email: string;
   password: string;
-  role: 'cliente' | 'cocinero';
+  role: 'cliente' | 'logistica' | 'admin';
   address?: string;
+  city?: string;
   phone?: string;
   createdAt: Date;
+  updatedAt: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
 }
 
@@ -33,10 +35,14 @@ const UserSchema = new Schema<IUserDocument>(
     },
     role: {
       type: String,
-      enum: ['cliente', 'cocinero'],
+      enum: ['cliente', 'logistica', 'admin'],
       default: 'cliente',
     },
     address: {
+      type: String,
+      default: '',
+    },
+    city: {
       type: String,
       default: '',
     },

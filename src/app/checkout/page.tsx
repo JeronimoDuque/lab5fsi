@@ -20,6 +20,10 @@ import {
   AlertCircle,
   CheckCircle2,
   Sparkles,
+  Package,
+  Download,
+  Building,
+  Truck,
 } from 'lucide-react';
 
 declare global {
@@ -66,10 +70,23 @@ declare global {
 export default function CheckoutPage() {
   const router = useRouter();
   const { user } = useAuth();
-  const { items, updateQuantity, removeItem, clearCart, totalAmount, formatPrice } = useCart();
+  const {
+    items,
+    updateQuantity,
+    removeItem,
+    clearCart,
+    subtotalAmount,
+    shippingCost,
+    totalAmount,
+    hasPhysicalItems,
+    hasEbookItems,
+    formatPrice,
+  } = useCart();
 
-  const [deliveryAddress, setDeliveryAddress] = useState(user?.address || 'Bloque 19, Aula 204, Ciudad Universitaria');
-  const [deliveryPhone, setDeliveryPhone] = useState(user?.phone || '3001234567');
+  const [address, setAddress] = useState(user?.address || 'Calle 67 # 53-108');
+  const [city, setCity] = useState(user?.city || 'Medellín');
+  const [department, setDepartment] = useState('Antioquia');
+  const [phone, setPhone] = useState(user?.phone || '3001234567');
   const [notes, setNotes] = useState('');
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -105,14 +122,17 @@ export default function CheckoutPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         items: items.map((i) => ({
-          dish: i.dish._id,
-          name: i.dish.name,
-          price: i.dish.price,
+          book: i.book._id,
+          format: i.selectedFormat,
           quantity: i.quantity,
         })),
-        deliveryAddress,
-        deliveryPhone,
-        notes,
+        shippingAddress: {
+          address,
+          city,
+          department,
+          phone,
+          notes,
+        },
         paymentMethod: 'paypal',
         paypalOrderId,
       }),
@@ -138,8 +158,8 @@ export default function CheckoutPage() {
       return;
     }
 
-    if (!deliveryAddress.trim()) {
-      setError('La dirección de entrega es requerida.');
+    if (hasPhysicalItems && (!address.trim() || !city.trim())) {
+      setError('La dirección y ciudad de entrega son obligatorias para libros físicos.');
       return;
     }
 
@@ -154,29 +174,32 @@ export default function CheckoutPage() {
         body: JSON.stringify({
           amount: totalAmount,
           simulated: isSimulated,
-          paypalOrderId: isSimulated ? `PAYPAL-DEMO-${Date.now()}` : undefined,
+          paypalOrderId: isSimulated ? `PAYPAL-SIM-${Date.now()}` : undefined,
         }),
       });
 
       const payData = await payRes.json();
       if (!payRes.ok) {
-        throw new Error(payData.error || 'Error al procesar el pago con PayPal.');
+        throw new Error(payData.error || 'Error al procesar el pago.');
       }
 
-      // 2. Registrar la orden / reserva automáticamente
+      // 2. Registrar la orden en el backend
       const orderRes = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           items: items.map((i) => ({
-            dish: i.dish._id,
-            name: i.dish.name,
-            price: i.dish.price,
+            book: i.book._id,
+            format: i.selectedFormat,
             quantity: i.quantity,
           })),
-          deliveryAddress,
-          deliveryPhone,
-          notes,
+          shippingAddress: {
+            address,
+            city,
+            department,
+            phone,
+            notes,
+          },
           paymentMethod: isSimulated ? 'paypal_simulated' : 'paypal',
           paypalOrderId: payData.transactionId,
         }),
@@ -187,7 +210,7 @@ export default function CheckoutPage() {
         throw new Error(orderData.error || 'Error al registrar el pedido.');
       }
 
-      // 3. Limpiar carrito y redirigir al seguimiento en tiempo real
+      // 3. Limpiar carrito y redirigir
       clearCart();
       router.push(`/pedidos/${orderData.order._id}`);
     } catch (err: any) {
@@ -200,18 +223,18 @@ export default function CheckoutPage() {
   if (items.length === 0) {
     return (
       <div className="max-w-3xl mx-auto px-4 py-20 text-center">
-        <div className="w-20 h-20 rounded-3xl bg-orange-100 text-orange-600 flex items-center justify-center mx-auto mb-4">
+        <div className="w-20 h-20 rounded-3xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto mb-4">
           <ShoppingBag className="w-10 h-10" />
         </div>
         <h2 className="text-2xl font-black text-slate-900 mb-2">Tu carrito está vacío</h2>
         <p className="text-slate-500 text-sm mb-6">
-          Aún no has agregado deliciosos platos de FastFoodUdeA a tu pedido.
+          Aún no has agregado libros ni e-books a tu orden de compra.
         </p>
         <Link
-          href="/menu"
-          className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-white bg-orange-600 hover:bg-orange-700 shadow-md shadow-orange-500/20"
+          href="/catalogo"
+          className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-md shadow-indigo-500/20"
         >
-          Explorar el Menú
+          Explorar Catálogo
           <ArrowRight className="w-4 h-4" />
         </Link>
       </div>
@@ -219,77 +242,90 @@ export default function CheckoutPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 pb-24">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+      {paypalClientId && (
+        <Script
+          src={`https://www.paypal.com/sdk/js?client-id=${paypalClientId}&currency=USD&intent=capture`}
+          strategy="afterInteractive"
+          onLoad={() => setPaypalReady(true)}
+        />
+      )}
+
       <div className="mb-8">
-        <h1 className="text-3xl font-black text-slate-900">Resumen y Confirmación de Pedido</h1>
-        <p className="text-slate-500 text-xs sm:text-sm mt-1">
-          Verifica tus platos, ingresa tu dirección en el campus y procesa tu pago con PayPal.
+        <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Finalizar Compra</h1>
+        <p className="text-slate-500 text-sm mt-1">
+          Revisa tus libros, ingresa los datos de envío y completa tu pago seguro.
         </p>
       </div>
 
       {error && (
-        <div className="mb-6 p-4 rounded-2xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold flex items-center gap-2">
-          <AlertCircle className="w-5 h-5 shrink-0" />
+        <div className="mb-6 p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 flex items-center gap-3 text-sm">
+          <AlertCircle className="w-5 h-5 shrink-0 text-rose-600" />
           <span>{error}</span>
         </div>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        
-        {/* Left Column: Delivery details & Items List */}
+        {/* Columna Izquierda: Items del Carrito y Formulario de Envío */}
         <div className="lg:col-span-7 space-y-6">
-          
-          {/* Order Items List */}
-          <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-xs space-y-4">
-            <h2 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
-              <ShoppingBag className="w-5 h-5 text-orange-600" />
-              Platos Seleccionados ({items.length})
+          {/* Items de la Orden */}
+          <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs">
+            <h2 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+              <ShoppingBag className="w-5 h-5 text-indigo-600" />
+              Libros en tu Carrito ({items.length})
             </h2>
 
             <div className="divide-y divide-slate-100">
               {items.map((item) => (
-                <div key={item.dish._id} className="py-4 flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <img
-                      src={item.dish.image}
-                      alt={item.dish.name}
-                      className="w-14 h-14 rounded-2xl object-cover bg-slate-100"
-                    />
-                    <div>
-                      <h4 className="font-bold text-sm text-slate-900">{item.dish.name}</h4>
-                      <p className="text-xs text-orange-600 font-semibold">
-                        {formatPrice(item.dish.price)} c/u
-                      </p>
+                <div key={`${item.book._id}-${item.selectedFormat}`} className="py-4 flex gap-4 items-center">
+                  <img
+                    src={item.book.coverImage}
+                    alt={item.book.title}
+                    className="w-16 h-20 object-cover rounded-xl border border-slate-200 shrink-0"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
+                          item.selectedFormat === 'fisico'
+                            ? 'bg-amber-100 text-amber-900'
+                            : 'bg-emerald-100 text-emerald-900'
+                        }`}
+                      >
+                        {item.selectedFormat === 'fisico' ? 'Libro Físico' : 'E-Book (Digital)'}
+                      </span>
+                    </div>
+                    <h3 className="font-bold text-slate-900 text-sm truncate mt-1">{item.book.title}</h3>
+                    <p className="text-xs text-slate-500">{item.book.author}</p>
+                    <div className="text-sm font-extrabold text-slate-900 mt-1">
+                      {formatPrice(item.book.price)}
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center border border-slate-200 rounded-xl overflow-hidden bg-slate-50">
-                      <button
-                        onClick={() => updateQuantity(item.dish._id, item.quantity - 1)}
-                        className="p-1.5 hover:bg-slate-200 text-slate-700 transition-colors"
-                      >
-                        <Minus className="w-3.5 h-3.5" />
-                      </button>
-                      <span className="px-3 text-xs font-bold text-slate-800">
-                        {item.quantity}
-                      </span>
-                      <button
-                        onClick={() => updateQuantity(item.dish._id, item.quantity + 1)}
-                        className="p-1.5 hover:bg-slate-200 text-slate-700 transition-colors"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-
-                    <span className="font-extrabold text-sm text-slate-900 w-24 text-right">
-                      {formatPrice(item.dish.price * item.quantity)}
-                    </span>
-
+                  {/* Controles de Cantidad */}
+                  <div className="flex items-center gap-2">
                     <button
-                      onClick={() => removeItem(item.dish._id)}
-                      className="p-2 text-slate-400 hover:text-red-600 rounded-lg transition-colors"
-                      title="Eliminar plato"
+                      onClick={() =>
+                        updateQuantity(item.book._id, item.selectedFormat, item.quantity - 1)
+                      }
+                      className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 transition-colors"
+                    >
+                      <Minus className="w-3.5 h-3.5" />
+                    </button>
+                    <span className="w-6 text-center text-sm font-bold text-slate-900">
+                      {item.quantity}
+                    </span>
+                    <button
+                      onClick={() =>
+                        updateQuantity(item.book._id, item.selectedFormat, item.quantity + 1)
+                      }
+                      className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 transition-colors"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => removeItem(item.book._id, item.selectedFormat)}
+                      className="p-2 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 ml-1 transition-colors"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -299,228 +335,229 @@ export default function CheckoutPage() {
             </div>
           </div>
 
-          {/* Delivery Info */}
-          <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-xs space-y-4">
-            <h2 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
-              <MapPin className="w-5 h-5 text-orange-600" />
-              Dirección de Entrega en el Campus UdeA
+          {/* Formulario de Envíos */}
+          <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs">
+            <h2 className="text-lg font-bold text-slate-900 mb-2 flex items-center gap-2">
+              <Truck className="w-5 h-5 text-indigo-600" />
+              Información de Despacho y Envío
             </h2>
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Ubicación exacta de entrega (Bloque, aula, piso o referencia)
-                </label>
-                <div className="relative">
-                  <MapPin className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
-                  <input
-                    type="text"
-                    required
-                    value={deliveryAddress}
-                    onChange={(e) => setDeliveryAddress(e.target.value)}
-                    placeholder="Ej. Bloque 19, Aula 204"
-                    className="w-full pl-10 pr-4 py-2.5 text-sm rounded-xl border border-slate-200 focus:outline-hidden focus:border-orange-500 focus:ring-2 focus:ring-orange-200"
-                  />
+            {hasPhysicalItems ? (
+              <div className="space-y-4 mt-4">
+                <div className="p-3 bg-amber-50 rounded-2xl border border-amber-200 text-xs text-amber-800 flex items-center gap-2">
+                  <Package className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>Tu orden incluye libros físicos. Enviaremos con transportadora certificada y número de rastreo.</span>
                 </div>
-                {/* Suggestions */}
-                <div className="flex flex-wrap gap-2 mt-2">
-                  <span className="text-[10px] text-slate-400 self-center">Ejemplos:</span>
-                  {[
-                    'Bloque 19, Aula 204',
-                    'Biblioteca Central, 2do Piso',
-                    'Bloque 21 - Decanatura',
-                    'Portería Calle Barranquilla',
-                  ].map((sug) => (
-                    <button
-                      key={sug}
-                      type="button"
-                      onClick={() => setDeliveryAddress(sug)}
-                      className="px-2.5 py-1 rounded-lg text-[10px] font-medium bg-slate-100 hover:bg-orange-100 text-slate-700 hover:text-orange-700 transition-colors"
-                    >
-                      {sug}
-                    </button>
-                  ))}
-                </div>
-              </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Teléfono / Celular de contacto
-                </label>
-                <div className="relative">
-                  <Phone className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
-                  <input
-                    type="text"
-                    required
-                    value={deliveryPhone}
-                    onChange={(e) => setDeliveryPhone(e.target.value)}
-                    placeholder="300 123 4567"
-                    className="w-full pl-10 pr-4 py-2.5 text-sm rounded-xl border border-slate-200 focus:outline-hidden focus:border-orange-500 focus:ring-2 focus:ring-orange-200"
-                  />
-                </div>
-              </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                      Dirección de Entrega *
+                    </label>
+                    <div className="relative">
+                      <MapPin className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                      <input
+                        type="text"
+                        value={address}
+                        onChange={(e) => setAddress(e.target.value)}
+                        placeholder="Ej. Cra 43A # 1-50, Apto 402"
+                        className="w-full pl-9 pr-3 py-2 text-sm bg-white text-slate-900 placeholder:text-slate-400 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Notas para la cocina o repartidor (Opcional)
-                </label>
-                <div className="relative">
-                  <FileText className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                      Ciudad *
+                    </label>
+                    <div className="relative">
+                      <Building className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                      <input
+                        type="text"
+                        value={city}
+                        onChange={(e) => setCity(e.target.value)}
+                        placeholder="Ej. Medellín, Bogotá, Cali"
+                        className="w-full pl-9 pr-3 py-2 text-sm bg-white text-slate-900 placeholder:text-slate-400 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                      Departamento
+                    </label>
+                    <input
+                      type="text"
+                      value={department}
+                      onChange={(e) => setDepartment(e.target.value)}
+                      placeholder="Ej. Antioquia, Cundinamarca"
+                      className="w-full px-3 py-2 text-sm bg-white text-slate-900 placeholder:text-slate-400 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                      Teléfono de Contacto
+                    </label>
+                    <div className="relative">
+                      <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                      <input
+                        type="tel"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        placeholder="300 123 4567"
+                        className="w-full pl-9 pr-3 py-2 text-sm bg-white text-slate-900 placeholder:text-slate-400 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                    Instrucciones Especiales / Notas
+                  </label>
                   <textarea
                     rows={2}
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
-                    placeholder="Ej. Sin cebolla en la hamburguesa, salsa aparte..."
-                    className="w-full pl-10 pr-4 py-2.5 text-sm rounded-xl border border-slate-200 focus:outline-hidden focus:border-orange-500 focus:ring-2 focus:ring-orange-200"
+                    placeholder="Instrucciones de entrega para la portería o transportadora..."
+                    className="w-full px-3 py-2 text-sm bg-white text-slate-900 placeholder:text-slate-400 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                   />
                 </div>
               </div>
-            </div>
-          </div>
-
-        </div>
-
-        {/* Right Column: Financial Summary & PayPal Payment */}
-        <div className="lg:col-span-5 space-y-6">
-          <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-xs space-y-6 sticky top-24">
-            <h2 className="text-base font-extrabold text-slate-900 border-b border-slate-100 pb-3 flex items-center justify-between">
-              <span>Total de la Reserva</span>
-              <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full">
-                Entrega UdeA Gratis
-              </span>
-            </h2>
-
-            <div className="space-y-3 text-sm">
-              <div className="flex justify-between text-slate-600">
-                <span>Subtotal ({items.length} productos):</span>
-                <span className="font-semibold text-slate-800">{formatPrice(totalAmount)}</span>
-              </div>
-              <div className="flex justify-between text-slate-600">
-                <span>Costo de envío / servicio:</span>
-                <span className="font-bold text-emerald-600">$0 COP (Gratis)</span>
-              </div>
-              <div className="border-t border-slate-100 pt-3 flex justify-between items-baseline">
-                <span className="text-base font-extrabold text-slate-900">Total a Pagar:</span>
-                <span className="text-2xl font-black text-orange-600">
-                  {formatPrice(totalAmount)}
-                </span>
-              </div>
-            </div>
-
-            {/* PayPal Integration Container */}
-            <div className="space-y-3 pt-2">
-              {paypalClientId && (
-                <Script
-                  src={`https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(paypalClientId)}&currency=USD&intent=capture`}
-                  strategy="afterInteractive"
-                  onLoad={() => setPaypalReady(true)}
-                  onError={() => setError('No fue posible cargar PayPal. Revisa tu conexión e intenta nuevamente.')}
-                />
-              )}
-              <div className="p-3.5 rounded-2xl bg-amber-50/80 border border-amber-200 space-y-1">
-                <div className="flex items-center gap-2 text-amber-900 font-bold text-xs">
-                  <ShieldCheck className="w-4 h-4 text-amber-600" />
-                  <span>Pago Seguro con PayPal</span>
+            ) : (
+              <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-200 text-emerald-800 text-sm mt-3 flex items-start gap-3">
+                <Download className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                <div>
+                  <div className="font-bold">¡Compra 100% Digital (E-books)!</div>
+                  <div className="text-xs text-emerald-700 mt-0.5">
+                    No requieres ingresar dirección física ni pagar costo de envío. Tus e-books estarán disponibles para lectura y descarga inmediata en tu biblioteca una vez completado el pago.
+                  </div>
                 </div>
-                <p className="text-[11px] text-amber-800 leading-relaxed">
-                  Se cobrará el equivalente aproximado de US${usdAmount} (COP calculado a una tasa referencial de 4000 COP por USD).
-                </p>
-              </div>
-
-              {paypalReady && window.paypal ? (
-                <div
-                  ref={(element) => {
-                    if (!element || paypalContainerReady) return;
-                    setPaypalContainerReady(true);
-                    window.paypal?.Buttons({
-                      style: {
-                        layout: 'vertical',
-                        color: 'gold',
-                        shape: 'rect',
-                        label: 'paypal',
-                        height: 48,
-                      },
-                      createOrder: async (_data, actions) =>
-                        actions.order.create({
-                          intent: 'CAPTURE',
-                          purchase_units: [{
-                            description: 'Pedido FastFoodUdeA',
-                            amount: {
-                              currency_code: 'USD',
-                              value: usdAmount,
-                            },
-                          }],
-                        }),
-                      onApprove: async (data, actions) => {
-                        if (!deliveryAddress.trim()) {
-                          setError('La dirección de entrega es requerida.');
-                          return;
-                        }
-                        try {
-                          setProcessing(true);
-                          setError(null);
-                          const capture = await actions.order.capture();
-                          const captureId =
-                            capture.purchase_units?.[0]?.payments?.captures?.[0]?.id;
-                          const captureStatus =
-                            capture.purchase_units?.[0]?.payments?.captures?.[0]?.status;
-
-                          if (capture.status !== 'COMPLETED' && captureStatus !== 'COMPLETED') {
-                            throw new Error('El pago no fue completado por PayPal.');
-                          }
-                          if (!captureId) {
-                            throw new Error('PayPal no devolvió el identificador de la captura.');
-                          }
-
-                          await registerCapturedOrder(data.orderID, captureId);
-                        } catch (err: any) {
-                          setError(err.message || 'Error al procesar el pago con PayPal.');
-                        } finally {
-                          setProcessing(false);
-                        }
-                      },
-                      onError: (paypalError) => {
-                        setError(paypalError.message || 'Error durante el pago con PayPal.');
-                        setProcessing(false);
-                      },
-                      onCancel: () => {
-                        setError('El pago con PayPal fue cancelado.');
-                        setProcessing(false);
-                      },
-                    }).render('#paypal-button-container');
-                  }}
-                >
-                  <div id="paypal-button-container" />
-                </div>
-              ) : (
-                <div className="w-full py-4 text-center rounded-2xl bg-slate-100 text-sm font-bold text-slate-500">
-                  {!paypalClientId
-                    ? 'Configura NEXT_PUBLIC_PAYPAL_CLIENT_ID'
-                    : 'Cargando PayPal...'}
-                </div>
-              )}
-
-              <div className="text-center text-[10px] text-slate-400">
-                Transacción procesada por PayPal • Sandbox
-              </div>
-            </div>
-
-            {!user && (
-              <div className="p-3 rounded-xl bg-orange-50 border border-orange-200 text-center">
-                <p className="text-xs text-orange-800 font-medium">
-                  Para registrar tu pedido a tu nombre, debes iniciar sesión.
-                </p>
-                <Link
-                  href="/login"
-                  className="mt-2 inline-block text-xs font-bold text-orange-600 underline"
-                >
-                  Ir al Login
-                </Link>
               </div>
             )}
           </div>
         </div>
 
+        {/* Columna Derecha: Resumen de Pago y Pasarela */}
+        <div className="lg:col-span-5 space-y-6">
+          <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs space-y-4">
+            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+              <CreditCard className="w-5 h-5 text-indigo-600" />
+              Resumen de la Orden
+            </h2>
+
+            <div className="space-y-2 text-sm text-slate-600 border-b border-slate-100 pb-4">
+              <div className="flex justify-between">
+                <span>Subtotal libros</span>
+                <span className="font-semibold text-slate-900">{formatPrice(subtotalAmount)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Costo de envío nacional</span>
+                <span className="font-semibold text-slate-900">
+                  {shippingCost === 0 ? 'GRATIS' : formatPrice(shippingCost)}
+                </span>
+              </div>
+              <div className="flex justify-between text-xs text-slate-400">
+                <span>Equivalente aprox. USD</span>
+                <span>${usdAmount} USD</span>
+              </div>
+            </div>
+
+            <div className="flex justify-between items-baseline pt-1">
+              <span className="text-base font-bold text-slate-900">Total a Pagar</span>
+              <span className="text-2xl font-black text-indigo-600">{formatPrice(totalAmount)}</span>
+            </div>
+
+            {/* Opciones de Pago */}
+            <div className="space-y-3 pt-4">
+              <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                Selecciona Método de Pago
+              </div>
+
+              {/* Botón 1: Simulación Inmediata (Pruebas / Demo) */}
+              <button
+                onClick={() => handleProcessOrder(true)}
+                disabled={processing}
+                className="w-full py-3.5 px-4 rounded-2xl bg-linear-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-sm shadow-md shadow-emerald-500/20 flex items-center justify-center gap-2 transition-all"
+              >
+                <Sparkles className="w-4 h-4 text-emerald-200" />
+                {processing ? 'Procesando Orden...' : 'Pagar con Simulación Inmediata (Demo)'}
+              </button>
+              <p className="text-[11px] text-center text-slate-500">
+                Ideal para pruebas rápidas y calificación académica sin requerir saldo ni tarjetas.
+              </p>
+
+              <div className="relative flex py-2 items-center">
+                <div className="grow border-t border-slate-200" />
+                <span className="shrink mx-4 text-slate-400 text-xs font-medium uppercase">o con PayPal</span>
+                <div className="grow border-t border-slate-200" />
+              </div>
+
+              {/* Botón 2: PayPal Sandbox Oficial */}
+              {paypalClientId && (
+                <div className="pt-1">
+                  <div id="paypal-button-container" className="min-h-[48px]" />
+                  {paypalReady && !paypalContainerReady && (
+                    <button
+                      onClick={() => {
+                        if (window.paypal) {
+                          setPaypalContainerReady(true);
+                          window.paypal
+                            .Buttons({
+                              createOrder: (data, actions) => {
+                                return actions.order.create({
+                                  intent: 'CAPTURE',
+                                  purchase_units: [
+                                    {
+                                      description: `BookHub Orden - ${items.length} libros`,
+                                      amount: {
+                                        currency_code: 'USD',
+                                        value: usdAmount,
+                                      },
+                                    },
+                                  ],
+                                });
+                              },
+                              onApprove: async (data, actions) => {
+                                const details = await actions.order.capture();
+                                const captureId =
+                                  details.purchase_units?.[0]?.payments?.captures?.[0]?.id || data.orderID;
+                                await registerCapturedOrder(data.orderID, captureId);
+                              },
+                              onError: (err) => {
+                                setError('Error en PayPal Sandbox.');
+                              },
+                              onCancel: () => {
+                                setError('Transacción de PayPal cancelada.');
+                              },
+                              style: {
+                                layout: 'vertical',
+                                color: 'gold',
+                                shape: 'rect',
+                                label: 'paypal',
+                                height: 48,
+                              },
+                            })
+                            .render('#paypal-button-container');
+                        }
+                      }}
+                      className="w-full py-3 px-4 rounded-2xl bg-amber-400 hover:bg-amber-500 text-slate-900 font-bold text-sm shadow-xs flex items-center justify-center gap-2"
+                    >
+                      <CreditCard className="w-4 h-4" />
+                      Activar Pasarela PayPal Sandbox
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="pt-4 border-t border-slate-100 flex items-center justify-center gap-2 text-xs text-slate-500">
+              <ShieldCheck className="w-4 h-4 text-emerald-600" />
+              <span>Transacción 100% Segura con Encriptación SSL</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

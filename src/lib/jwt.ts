@@ -2,7 +2,7 @@ import jwt from 'jsonwebtoken';
 import { NextRequest } from 'next/server';
 import { AuthUser } from '@/types';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'super_secret_fastfoodudea_key_2026_jwt_auth_token';
+const JWT_SECRET = process.env.JWT_SECRET || 'super_secret_bookhub_key_2026_jwt_auth_token';
 
 export function signToken(user: AuthUser): string {
   return jwt.sign(
@@ -11,6 +11,9 @@ export function signToken(user: AuthUser): string {
       name: user.name,
       email: user.email,
       role: user.role,
+      address: user.address || '',
+      city: user.city || '',
+      phone: user.phone || '',
     },
     JWT_SECRET,
     { expiresIn: '7d' }

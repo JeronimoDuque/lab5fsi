@@ -1,4 +1,4 @@
-// Standalone Seed Script
+// Standalone Seed Script para BookHub
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const fs = require('fs');
@@ -25,241 +25,255 @@ if (fs.existsSync(envPath)) {
 
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/fastfoodudea';
 
-const UserSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  email: { type: String, required: true, unique: true },
-  password: { type: String, required: true },
-  role: { type: String, enum: ['cliente', 'cocinero'], default: 'cliente' },
-  address: String,
-  phone: String,
-}, { timestamps: true });
+const UserSchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true },
+    email: { type: String, required: true, unique: true },
+    password: { type: String, required: true },
+    role: { type: String, enum: ['cliente', 'logistica', 'admin'], default: 'cliente' },
+    address: String,
+    city: String,
+    phone: String,
+  },
+  { timestamps: true }
+);
 
-const DishSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  description: { type: String, required: true },
-  price: { type: Number, required: true },
-  category: { type: String, required: true },
-  image: { type: String, required: true },
-  available: { type: Boolean, default: true },
-}, { timestamps: true });
+UserSchema.pre('save', async function () {
+  if (!this.isModified('password')) return;
+  const salt = await bcrypt.genSalt(10);
+  this.password = await bcrypt.hash(this.password, salt);
+});
 
-const OrderSchema = new mongoose.Schema({
-  orderNumber: { type: String, required: true, unique: true },
-  customer: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  customerName: String,
-  customerEmail: String,
-  items: Array,
-  totalAmount: Number,
-  deliveryAddress: String,
-  deliveryPhone: String,
-  notes: String,
-  paymentStatus: String,
-  paymentMethod: String,
-  paypalOrderId: String,
-  status: { type: String, enum: ['Pendiente', 'En preparación', 'Listo', 'Entregado'], default: 'Pendiente' },
-}, { timestamps: true });
+const BookSchema = new mongoose.Schema(
+  {
+    title: { type: String, required: true },
+    author: { type: String, required: true },
+    isbn: { type: String, required: true, unique: true },
+    description: { type: String, required: true },
+    price: { type: Number, required: true },
+    category: { type: String, required: true },
+    format: { type: String, enum: ['fisico', 'ebook', 'ambos'], default: 'ambos' },
+    stock: { type: Number, default: 0 },
+    coverImage: String,
+    downloadUrl: String,
+    pages: Number,
+    isAvailable: { type: Boolean, default: true },
+  },
+  { timestamps: true }
+);
+
+const OrderSchema = new mongoose.Schema(
+  {
+    orderNumber: { type: String, required: true, unique: true },
+    customer: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    customerName: String,
+    customerEmail: String,
+    items: Array,
+    subtotal: Number,
+    shippingCost: Number,
+    totalAmount: Number,
+    shippingAddress: Object,
+    paymentStatus: String,
+    paymentMethod: String,
+    paypalOrderId: String,
+    status: {
+      type: String,
+      enum: ['Pendiente', 'En Preparación', 'Despachado', 'Entregado', 'Cancelado'],
+      default: 'Pendiente',
+    },
+    hasPhysicalItems: Boolean,
+    hasEbookItems: Boolean,
+    shipment: { type: mongoose.Schema.Types.ObjectId, ref: 'Shipment' },
+  },
+  { timestamps: true }
+);
+
+const ShipmentSchema = new mongoose.Schema(
+  {
+    order: { type: mongoose.Schema.Types.ObjectId, ref: 'Order' },
+    trackingNumber: { type: String, required: true, unique: true },
+    carrier: { type: String, default: 'Servientrega' },
+    destinationAddress: String,
+    city: String,
+    department: String,
+    recipientName: String,
+    recipientPhone: String,
+    status: { type: String, default: 'Pendiente' },
+    estimatedDelivery: String,
+    shippedAt: Date,
+    deliveredAt: Date,
+  },
+  { timestamps: true }
+);
 
 const User = mongoose.models.User || mongoose.model('User', UserSchema);
-const Dish = mongoose.models.Dish || mongoose.model('Dish', DishSchema);
+const Book = mongoose.models.Book || mongoose.model('Book', BookSchema);
 const Order = mongoose.models.Order || mongoose.model('Order', OrderSchema);
+const Shipment = mongoose.models.Shipment || mongoose.model('Shipment', ShipmentSchema);
 
-const dishes = [
+const books = [
   {
-    name: 'Hamburguesa Especial UdeA',
-    description: 'Doble carne de res 100% artesanal (240g), queso mozzarella fundido, tocineta crocante, lechuga fresca, tomate y salsa secreta de la casa en pan brioche.',
-    price: 18500,
-    category: 'Hamburguesas',
-    image: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=600&auto=format&fit=crop',
-    available: true,
+    title: 'Cien Años de Soledad',
+    author: 'Gabriel García Márquez',
+    isbn: '978-0307474728',
+    description: 'La obra cumbre del realismo mágico sobre la familia Buendía en Macondo.',
+    price: 55000,
+    category: 'Ficción',
+    format: 'ambos',
+    stock: 25,
+    coverImage: 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&q=80&w=800',
+    downloadUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+    pages: 471,
+    isAvailable: true,
   },
   {
-    name: 'Hamburguesa Crispy Chicken',
-    description: 'Pechuga de pollo apanada ultra crujiente, queso cheddar derretido, pepinillos dulces y mayonesa de ajo ahumado en pan artesanal.',
-    price: 16000,
-    category: 'Hamburguesas',
-    image: 'https://images.unsplash.com/photo-1625813506062-0aeb1d7a094b?w=600&auto=format&fit=crop',
-    available: true,
+    title: 'Clean Code: Manual de Desarrollo Ágil',
+    author: 'Robert C. Martin',
+    isbn: '978-0132350884',
+    description: 'Guía práctica para escribir código legible, testeable y mantenible.',
+    price: 85000,
+    category: 'Tecnología',
+    format: 'ambos',
+    stock: 14,
+    coverImage: 'https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&q=80&w=800',
+    downloadUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+    pages: 464,
+    isAvailable: true,
   },
   {
-    name: 'Pizza Personal Carnes Express',
-    description: 'Masa fina y crocante con salsa napolitana casera, pepperoni premium, tocineta, jamón ahumado y abundante queso mozzarella fundido.',
-    price: 15000,
-    category: 'Pizzas',
-    image: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=600&auto=format&fit=crop',
-    available: true,
+    title: 'Hábitos Atómicos',
+    author: 'James Clear',
+    isbn: '978-1524718840',
+    description: 'Estrategias probadas para construir hábitos que transformen tu vida.',
+    price: 48000,
+    category: 'Autoayuda',
+    format: 'ambos',
+    stock: 30,
+    coverImage: 'https://images.unsplash.com/photo-1589829085413-56de8ae18c73?auto=format&fit=crop&q=80&w=800',
+    downloadUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+    pages: 320,
+    isAvailable: true,
   },
   {
-    name: 'Pizza Hawaiana Gourmet',
-    description: 'Clásica combinación de jamón ahumado de cerdo, piña dulce caramelizada al horno y doble capa de queso mozzarella.',
-    price: 14000,
-    category: 'Pizzas',
-    image: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=600&auto=format&fit=crop',
-    available: true,
-  },
-  {
-    name: 'Salchipapa Costeña Monumental',
-    description: 'Montaña de papas a la francesa, salchicha manguera dorada, queso costeño rallado, tocineta picada, ripio de papa y salsas tártara y piña.',
-    price: 19000,
-    category: 'Salchipapas',
-    image: 'https://images.unsplash.com/photo-1585109649139-366815a0d713?w=600&auto=format&fit=crop',
-    available: true,
-  },
-  {
-    name: 'Salchipapa Clásica UdeA',
-    description: 'Papas fritas corte francés bien doradas con abundante salchicha especial, queso mozzarella derretido y salsa rosada.',
-    price: 12000,
-    category: 'Salchipapas',
-    image: 'https://images.unsplash.com/photo-1576107232684-1279f3908594?w=600&auto=format&fit=crop',
-    available: true,
-  },
-  {
-    name: 'Jugo Natural de Maracuyá en Leche',
-    description: 'Bebida helada de 16oz elaborada con pulpa de maracuyá 100% natural batida en leche entera bien cremosa.',
-    price: 6000,
-    category: 'Bebidas',
-    image: 'https://images.unsplash.com/photo-1546173159-315724a31696?w=600&auto=format&fit=crop',
-    available: true,
-  },
-  {
-    name: 'Gaseosa Postobón Manzana 400ml',
-    description: 'La bebida tradicional colombiana con todo el sabor refrescante a manzana, servida bien fría.',
-    price: 4500,
-    category: 'Bebidas',
-    image: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=600&auto=format&fit=crop',
-    available: true,
-  },
-  {
-    name: 'Brownie Caliente con Helado',
-    description: 'Porción de brownie artesanal de chocolate amargo recién horneado con bola de helado de vainilla y salsa de arequipe.',
-    price: 8000,
-    category: 'Postres',
-    image: 'https://images.unsplash.com/photo-1606313564200-e75d5e30476c?w=600&auto=format&fit=crop',
-    available: true,
+    title: 'Diseñando Sistemas Distribuidos',
+    author: 'Martin Kleppmann',
+    isbn: '978-1449373320',
+    description: 'Conceptos fundamentales de alta disponibilidad, consistencia y particiones.',
+    price: 92000,
+    category: 'Tecnología',
+    format: 'ebook',
+    stock: 0,
+    coverImage: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&q=80&w=800',
+    downloadUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+    pages: 616,
+    isAvailable: true,
   },
 ];
 
 async function seed() {
-  console.log('🌱 Conectando a MongoDB:', MONGODB_URI);
-  await mongoose.connect(MONGODB_URI);
-  console.log('✅ Conexión establecida.');
+  try {
+    console.log('🌱 Conectando a MongoDB para poblar BookHub...');
+    await mongoose.connect(MONGODB_URI);
 
-  // Hashear contraseñas
-  const passCocinero = await bcrypt.hash('cocinero123', 10);
-  const passCliente = await bcrypt.hash('cliente123', 10);
+    console.log('🧹 Limpiando colecciones...');
+    await User.deleteMany({});
+    await Book.deleteMany({});
+    await Order.deleteMany({});
+    await Shipment.deleteMany({});
 
-  // Crear o actualizar usuarios
-  await User.deleteMany({});
-  const cocinero = await User.create({
-    name: 'Chef Mario UdeA',
-    email: 'cocinero@fastfoodudea.com',
-    password: passCocinero,
-    role: 'cocinero',
-    phone: '3001234567',
-    address: 'Cocina Central Bloque 9 UdeA',
-  });
+    console.log('👤 Creando usuarios con roles...');
+    const cliente = await User.create({
+      name: 'Cliente Lector',
+      email: 'cliente@bookhub.com',
+      password: 'cliente123',
+      role: 'cliente',
+      address: 'Calle 10 # 43A-25',
+      city: 'Medellín',
+      phone: '3001234567',
+    });
 
-  const cliente = await User.create({
-    name: 'Estudiante Juan UdeA',
-    email: 'cliente@fastfoodudea.com',
-    password: passCliente,
-    role: 'cliente',
-    phone: '3109876543',
-    address: 'Bloque 19, Aula 204, Ciudad Universitaria',
-  });
-  console.log('👤 Usuarios creados con éxito.');
+    const logistica = await User.create({
+      name: 'Operador Logística',
+      email: 'logistica@bookhub.com',
+      password: 'logistica123',
+      role: 'logistica',
+      address: 'Bodega Central 4',
+      city: 'Medellín',
+      phone: '3109876543',
+    });
 
-  // Platos
-  await Dish.deleteMany({});
-  const insertedDishes = await Dish.insertMany(dishes);
-  console.log(`🍔 ${insertedDishes.length} platos insertados.`);
+    const admin = await User.create({
+      name: 'Super Admin BookHub',
+      email: 'admin@bookhub.com',
+      password: 'admin123',
+      role: 'admin',
+      address: 'Sede Principal',
+      city: 'Bogotá',
+      phone: '3150001122',
+    });
 
-  // Órdenes
-  await Order.deleteMany({});
-  const sampleOrders = [
-    {
-      orderNumber: 'ORD-1001',
+    console.log('📚 Insertando libros en catálogo...');
+    const createdBooks = await Book.insertMany(books);
+
+    console.log('🚚 Creando órdenes y envíos de prueba...');
+    const order = await Order.create({
+      orderNumber: 'BKH-1001',
       customer: cliente._id,
       customerName: cliente.name,
       customerEmail: cliente.email,
       items: [
-        { dish: insertedDishes[0]._id, name: insertedDishes[0].name, price: insertedDishes[0].price, quantity: 2, subtotal: insertedDishes[0].price * 2 },
-        { dish: insertedDishes[7]._id, name: insertedDishes[7].name, price: insertedDishes[7].price, quantity: 2, subtotal: insertedDishes[7].price * 2 },
+        {
+          book: createdBooks[0]._id,
+          title: createdBooks[0].title,
+          price: createdBooks[0].price,
+          quantity: 1,
+          format: 'fisico',
+          subtotal: createdBooks[0].price,
+        },
       ],
-      totalAmount: insertedDishes[0].price * 2 + insertedDishes[7].price * 2,
-      deliveryAddress: 'Bloque 19, Aula 204, Ciudad Universitaria UdeA',
-      deliveryPhone: '3109876543',
-      notes: 'Sin cebolla en las hamburguesas por favor.',
+      subtotal: createdBooks[0].price,
+      shippingCost: 12000,
+      totalAmount: createdBooks[0].price + 12000,
+      shippingAddress: {
+        address: cliente.address,
+        city: cliente.city,
+        phone: cliente.phone,
+      },
       paymentStatus: 'completed',
       paymentMethod: 'paypal_simulated',
-      paypalOrderId: 'PAYPAL-SEED-01',
       status: 'Pendiente',
-    },
-    {
-      orderNumber: 'ORD-1002',
-      customer: cliente._id,
-      customerName: 'Laura Gómez (Estudiante)',
-      customerEmail: 'laura@udea.edu.co',
-      items: [
-        { dish: insertedDishes[4]._id, name: insertedDishes[4].name, price: insertedDishes[4].price, quantity: 1, subtotal: insertedDishes[4].price },
-        { dish: insertedDishes[6]._id, name: insertedDishes[6].name, price: insertedDishes[6].price, quantity: 1, subtotal: insertedDishes[6].price },
-      ],
-      totalAmount: insertedDishes[4].price + insertedDishes[6].price,
-      deliveryAddress: 'Biblioteca Central UdeA, 2do Piso cubículo 8',
-      deliveryPhone: '3157778899',
-      notes: 'Mucha salsa tártara y cubiertos descartables.',
-      paymentStatus: 'completed',
-      paymentMethod: 'paypal_simulated',
-      paypalOrderId: 'PAYPAL-SEED-02',
-      status: 'En preparación',
-    },
-    {
-      orderNumber: 'ORD-1003',
-      customer: cliente._id,
-      customerName: 'Prof. Carlos Ramírez',
-      customerEmail: 'carlos.ramirez@udea.edu.co',
-      items: [
-        { dish: insertedDishes[2]._id, name: insertedDishes[2].name, price: insertedDishes[2].price, quantity: 1, subtotal: insertedDishes[2].price },
-      ],
-      totalAmount: insertedDishes[2].price,
-      deliveryAddress: 'Bloque 21 - Oficina de Docencia 302',
-      deliveryPhone: '3124445566',
-      notes: 'Llamar al llegar a la puerta del bloque.',
-      paymentStatus: 'completed',
-      paymentMethod: 'paypal_simulated',
-      paypalOrderId: 'PAYPAL-SEED-03',
-      status: 'Listo',
-    },
-    {
-      orderNumber: 'ORD-1004',
-      customer: cliente._id,
-      customerName: 'Ana Sofía Ruiz',
-      customerEmail: 'asofia@udea.edu.co',
-      items: [
-        { dish: insertedDishes[1]._id, name: insertedDishes[1].name, price: insertedDishes[1].price, quantity: 1, subtotal: insertedDishes[1].price },
-        { dish: insertedDishes[8]._id, name: insertedDishes[8].name, price: insertedDishes[8].price, quantity: 1, subtotal: insertedDishes[8].price },
-      ],
-      totalAmount: insertedDishes[1].price + insertedDishes[8].price,
-      deliveryAddress: 'Portería Calle Barranquilla',
-      deliveryPhone: '3189990011',
-      notes: 'Entregado a mediodía.',
-      paymentStatus: 'completed',
-      paymentMethod: 'paypal_simulated',
-      paypalOrderId: 'PAYPAL-SEED-04',
-      status: 'Entregado',
-    },
-  ];
+      hasPhysicalItems: true,
+      hasEbookItems: false,
+    });
 
-  await Order.insertMany(sampleOrders);
-  console.log(`📦 ${sampleOrders.length} órdenes iniciales insertadas para el tablero Kanban.`);
+    const shipment = await Shipment.create({
+      order: order._id,
+      trackingNumber: 'GUIA-880011',
+      carrier: 'Servientrega',
+      destinationAddress: cliente.address,
+      city: cliente.city,
+      recipientName: cliente.name,
+      status: 'Pendiente',
+      estimatedDelivery: '2 a 3 días hábiles',
+    });
 
-  console.log('\n🎉 Base de datos poblada exitosamente.');
-  console.log('👉 Cocinero: cocinero@fastfoodudea.com / cocinero123');
-  console.log('👉 Cliente:  cliente@fastfoodudea.com / cliente123\n');
+    order.shipment = shipment._id;
+    await order.save();
 
-  await mongoose.disconnect();
+    console.log(`
+✅ Base de datos poblada exitosamente!
+------------------------------------------------------
+👤 Cliente:    cliente@bookhub.com   / cliente123
+🚚 Logística:  logistica@bookhub.com / logistica123
+👑 Admin:      admin@bookhub.com     / admin123
+📚 Libros creados: ${createdBooks.length}
+------------------------------------------------------
+    `);
+    process.exit(0);
+  } catch (err) {
+    console.error('❌ Error poblando base de datos:', err);
+    process.exit(1);
+  }
 }
 
-seed().catch((err) => {
-  console.error('❌ Error ejecutando seed:', err);
-  process.exit(1);
-});
+seed();

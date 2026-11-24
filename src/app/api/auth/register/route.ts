@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/db';
 import User from '@/models/User';
 import { signToken } from '@/lib/jwt';
+import { UserRole } from '@/types';
 
 export async function POST(req: NextRequest) {
   try {
-    const { name, email, password, role = 'cliente', address = '', phone = '' } = await req.json();
+    const { name, email, password, role = 'cliente', address = '', city = '', phone = '' } = await req.json();
 
     if (!name || !email || !password) {
       return NextResponse.json(
@@ -31,7 +32,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const assignedRole = role === 'cocinero' ? 'cocinero' : 'cliente';
+    // Validar rol asignable
+    let assignedRole: UserRole = 'cliente';
+    if (role === 'logistica' || role === 'admin') {
+      assignedRole = role;
+    }
 
     const newUser = await User.create({
       name,
@@ -39,6 +44,7 @@ export async function POST(req: NextRequest) {
       password,
       role: assignedRole,
       address,
+      city,
       phone,
     });
 
@@ -46,7 +52,10 @@ export async function POST(req: NextRequest) {
       id: (newUser._id as unknown as string).toString(),
       name: newUser.name,
       email: newUser.email,
-      role: newUser.role,
+      role: newUser.role as UserRole,
+      address: newUser.address,
+      city: newUser.city,
+      phone: newUser.phone,
     };
 
     const token = signToken(authUser);

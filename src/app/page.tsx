@@ -1,237 +1,290 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useAuth } from '@/context/AuthContext';
+import { useCart } from '@/context/CartContext';
+import { IBook } from '@/types';
 import {
-  UtensilsCrossed,
-  ChefHat,
-  ShoppingBag,
-  Clock,
+  BookOpen,
+  Truck,
+  Download,
+  CreditCard,
+  Radio,
+  ArrowRight,
   Sparkles,
   ShieldCheck,
-  Zap,
-  ArrowRight,
-  Database,
   CheckCircle2,
-  RefreshCw,
+  Package,
+  Layers,
+  Database,
 } from 'lucide-react';
 
 export default function HomePage() {
-  const { user } = useAuth();
+  const { addItem, formatPrice } = useCart();
+  const [featuredBooks, setFeaturedBooks] = useState<IBook[]>([]);
+  const [loading, setLoading] = useState(true);
   const [seeding, setSeeding] = useState(false);
-  const [seedResult, setSeedResult] = useState<string | null>(null);
+  const [seedMessage, setSeedMessage] = useState<string | null>(null);
 
-  const handleRunSeed = async () => {
+  const fetchFeaturedBooks = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch('/api/books');
+      const data = await res.json();
+      if (res.ok && data.books) {
+        setFeaturedBooks(data.books.slice(0, 4));
+      }
+    } catch (err) {
+      console.error('Error fetching featured books:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchFeaturedBooks();
+  }, []);
+
+  const handleSeedData = async () => {
     try {
       setSeeding(true);
-      setSeedResult(null);
+      setSeedMessage(null);
       const res = await fetch('/api/seed', { method: 'POST' });
       const data = await res.json();
       if (res.ok) {
-        setSeedResult('¡Base de datos inicializada exitosamente con usuarios, platos y pedidos de prueba!');
+        setSeedMessage('¡Datos de prueba cargados exitosamente (libros, usuarios y envíos)!');
+        fetchFeaturedBooks();
       } else {
-        setSeedResult(`Error: ${data.error || 'No se pudo conectar a MongoDB. Asegúrate de tener MongoDB iniciado.'}`);
+        setSeedMessage('Error al poblar base de datos: ' + (data.error || ''));
       }
     } catch (err: any) {
-      setSeedResult(`Error: ${err.message}`);
+      setSeedMessage('Error de conexión al cargar datos de prueba.');
     } finally {
       setSeeding(false);
+      setTimeout(() => setSeedMessage(null), 5000);
     }
   };
 
   return (
-    <div className="min-h-full">
+    <div className="space-y-16 pb-16">
+      {/* Seed Alert Notice */}
+      {seedMessage && (
+        <div className="max-w-4xl mx-auto px-4 mt-4">
+          <div className="bg-emerald-50 border border-emerald-300 text-emerald-800 px-4 py-3 rounded-2xl flex items-center justify-between text-sm shadow-sm">
+            <span className="flex items-center gap-2">
+              <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+              {seedMessage}
+            </span>
+            <button onClick={() => setSeedMessage(null)} className="text-emerald-700 font-bold hover:underline">
+              Cerrar
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Hero Section */}
-      <section className="relative overflow-hidden bg-linear-to-b from-orange-50/60 via-amber-50/30 to-white py-16 sm:py-24 border-b border-orange-100/60">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-            
-            {/* Left Column: Headlines & CTA */}
-            <div className="lg:col-span-7 space-y-6 text-center lg:text-left">
-              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-orange-100 text-orange-800 text-xs font-semibold tracking-wide uppercase shadow-xs">
-                <Sparkles className="w-3.5 h-3.5 text-orange-600 animate-spin" />
-                FastFoodUdeA • Pedidos & Reservas
-              </div>
+      <section className="relative overflow-hidden bg-linear-to-b from-indigo-900 via-indigo-950 to-slate-950 text-white py-20 lg:py-28 px-4 sm:px-6 lg:px-8">
+        <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:16px_16px]" />
+        
+        <div className="max-w-7xl mx-auto relative z-10 text-center">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-indigo-200 text-xs font-semibold mb-6">
+            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+            Librería Digital & Envíos Físicos Inteligentes
+          </div>
 
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-slate-900 tracking-tight leading-tight">
-                El mejor sabor de la UdeA, <br />
-                <span className="text-transparent bg-clip-text bg-linear-to-r from-orange-600 to-amber-500">
-                  en tiempo real a tu mesa.
-                </span>
-              </h1>
+          <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black tracking-tight leading-tight max-w-4xl mx-auto">
+            El Universo de las Letras en <span className="text-indigo-400">Tus Manos</span>
+          </h1>
 
-              <p className="text-lg text-slate-600 max-w-2xl mx-auto lg:mx-0">
-                Explora el menú universitario, personaliza tus platos favoritos, paga de forma segura con PayPal y sigue el estado de tu pedido en tiempo real mientras nuestros cocineros lo preparan en su tablero Kanban.
-              </p>
+          <p className="mt-6 text-lg sm:text-xl text-slate-300 max-w-2xl mx-auto font-normal leading-relaxed">
+            Descubre miles de obras. Compra tus libros físicos con <strong>gestión de stock y despacho en tiempo real</strong> o accede a <strong>e-books digitales con descarga inmediata</strong>.
+          </p>
 
-              <div className="flex flex-wrap items-center justify-center lg:justify-start gap-4 pt-2">
-                <Link
-                  href="/menu"
-                  className="px-6 py-3.5 rounded-xl font-bold text-white bg-linear-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 shadow-lg shadow-orange-500/25 flex items-center gap-2 transition-all hover:scale-[1.02] active:scale-[0.98]"
-                >
-                  <ShoppingBag className="w-5 h-5" />
-                  Ver Menú y Ordenar
-                  <ArrowRight className="w-4 h-4 ml-1" />
-                </Link>
+          <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
+            <Link
+              href="/catalogo"
+              className="px-8 py-3.5 rounded-2xl bg-indigo-500 hover:bg-indigo-600 text-white font-bold text-base shadow-xl shadow-indigo-500/25 transition-all transform hover:-translate-y-0.5 flex items-center gap-2"
+            >
+              Explorar Catálogo
+              <ArrowRight className="w-5 h-5" />
+            </Link>
 
-                <Link
-                  href="/cocinero"
-                  className="px-6 py-3.5 rounded-xl font-bold text-slate-800 bg-white border border-slate-200 hover:bg-slate-50 hover:border-slate-300 shadow-xs flex items-center gap-2 transition-all"
-                >
-                  <ChefHat className="w-5 h-5 text-amber-600" />
-                  Panel Cocinero (Kanban)
-                </Link>
-              </div>
+            <button
+              onClick={handleSeedData}
+              disabled={seeding}
+              className="px-6 py-3.5 rounded-2xl bg-white/10 hover:bg-white/20 text-white font-semibold text-base border border-white/20 backdrop-blur-md transition-all flex items-center gap-2"
+            >
+              <Database className="w-4 h-4 text-amber-400" />
+              {seeding ? 'Cargando datos...' : 'Cargar Datos Demo (Seed)'}
+            </button>
+          </div>
 
-              {/* Seed Button Banner */}
-              <div className="pt-4">
-                <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-left">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0">
-                      <Database className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-bold text-amber-900">¿Primera vez iniciando?</h4>
-                      <p className="text-xs text-amber-700">Carga los usuarios y el menú inicial con un solo clic.</p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={handleRunSeed}
-                    disabled={seeding}
-                    className="px-4 py-2 rounded-lg text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white shadow-xs flex items-center gap-2 transition-colors disabled:opacity-50 shrink-0"
-                  >
-                    <RefreshCw className={`w-3.5 h-3.5 ${seeding ? 'animate-spin' : ''}`} />
-                    {seeding ? 'Cargando datos...' : 'Cargar Datos de Prueba (Seed)'}
-                  </button>
-                </div>
-                {seedResult && (
-                  <div
-                    className={`mt-2 p-3 rounded-lg text-xs font-medium ${
-                      seedResult.startsWith('Error')
-                        ? 'bg-red-50 text-red-700 border border-red-200'
-                        : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                    }`}
-                  >
-                    {seedResult}
-                  </div>
-                )}
-              </div>
+          {/* Badges de características */}
+          <div className="mt-14 grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto text-left">
+            <div className="bg-white/5 backdrop-blur-md border border-white/10 p-4 rounded-2xl">
+              <Truck className="w-6 h-6 text-indigo-400 mb-2" />
+              <div className="font-bold text-sm text-white">Envíos con Guía</div>
+              <div className="text-xs text-slate-400">Rastreo con transportadoras</div>
             </div>
-
-            {/* Right Column: Interactive Card Preview */}
-            <div className="lg:col-span-5">
-              <div className="relative rounded-3xl bg-linear-to-tr from-orange-500 to-amber-500 p-1 shadow-2xl shadow-orange-500/20">
-                <div className="rounded-[22px] bg-slate-900 text-white p-6 sm:p-8 space-y-6">
-                  <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-orange-600 flex items-center justify-center">
-                        <UtensilsCrossed className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <h3 className="font-bold text-sm">FastFoodUdeA</h3>
-                        <p className="text-xs text-slate-400">Cuentas de Acceso Rápido</p>
-                      </div>
-                    </div>
-                    <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                      WebSocket Activo
-                    </span>
-                  </div>
-
-                  <div className="space-y-4">
-                    {/* Cocinero Account Box */}
-                    <div className="p-4 rounded-xl bg-slate-800/80 border border-slate-700 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <ChefHat className="w-4 h-4 text-amber-400" />
-                          <span className="text-xs font-bold text-amber-400">Rol: Cocinero</span>
-                        </div>
-                        <span className="text-[11px] text-slate-400">Tablero Kanban en vivo</span>
-                      </div>
-                      <p className="text-xs text-slate-300 font-mono">cocinero@fastfoodudea.com</p>
-                      <p className="text-[11px] text-slate-400">Contraseña: <span className="text-amber-200 font-mono">cocinero123</span></p>
-                    </div>
-
-                    {/* Cliente Account Box */}
-                    <div className="p-4 rounded-xl bg-slate-800/80 border border-slate-700 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <ShoppingBag className="w-4 h-4 text-orange-400" />
-                          <span className="text-xs font-bold text-orange-400">Rol: Cliente</span>
-                        </div>
-                        <span className="text-[11px] text-slate-400">Menú + PayPal</span>
-                      </div>
-                      <p className="text-xs text-slate-300 font-mono">cliente@fastfoodudea.com</p>
-                      <p className="text-[11px] text-slate-400">Contraseña: <span className="text-orange-200 font-mono">cliente123</span></p>
-                    </div>
-                  </div>
-
-                  <Link
-                    href="/login"
-                    className="w-full py-3 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-bold text-sm flex items-center justify-center gap-2 transition-colors"
-                  >
-                    Ir a la pantalla de Login
-                    <ArrowRight className="w-4 h-4" />
-                  </Link>
-                </div>
-              </div>
+            <div className="bg-white/5 backdrop-blur-md border border-white/10 p-4 rounded-2xl">
+              <Download className="w-6 h-6 text-emerald-400 mb-2" />
+              <div className="font-bold text-sm text-white">E-Books Inmediatos</div>
+              <div className="text-xs text-slate-400">Descarga directa post-compra</div>
             </div>
-
+            <div className="bg-white/5 backdrop-blur-md border border-white/10 p-4 rounded-2xl">
+              <Radio className="w-6 h-6 text-amber-400 mb-2" />
+              <div className="font-bold text-sm text-white">Stock en Tiempo Real</div>
+              <div className="text-xs text-slate-400">Sincronización WebSockets</div>
+            </div>
+            <div className="bg-white/5 backdrop-blur-md border border-white/10 p-4 rounded-2xl">
+              <CreditCard className="w-6 h-6 text-purple-400 mb-2" />
+              <div className="font-bold text-sm text-white">Pagos PayPal</div>
+              <div className="text-xs text-slate-400">Sandbox y Simulación</div>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Features Grid */}
-      <section className="py-16 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-3xl mx-auto mb-12">
-            <h2 className="text-3xl font-extrabold text-slate-900">
-              Arquitectura Completa y Moderna
+      {/* Featured Books Section */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-8 gap-4">
+          <div>
+            <span className="text-xs font-bold uppercase tracking-wider text-indigo-600">Recomendaciones</span>
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-1">
+              Libros Destacados del Mes
             </h2>
-            <p className="text-slate-600 mt-2 text-sm sm:text-base">
-              Diseñado con Next.js 16 App Router, MongoDB Atlas, WebSockets en tiempo real y flujo completo de compra.
+          </div>
+          <Link
+            href="/catalogo"
+            className="text-sm font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1.5"
+          >
+            Ver todos los títulos
+            <ArrowRight className="w-4 h-4" />
+          </Link>
+        </div>
+
+        {loading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[1, 2, 3, 4].map((n) => (
+              <div key={n} className="bg-white rounded-2xl p-4 border border-slate-200 animate-pulse space-y-3">
+                <div className="w-full h-56 bg-slate-200 rounded-xl" />
+                <div className="h-4 bg-slate-200 rounded-md w-3/4" />
+                <div className="h-3 bg-slate-200 rounded-md w-1/2" />
+              </div>
+            ))}
+          </div>
+        ) : featuredBooks.length === 0 ? (
+          <div className="text-center py-12 bg-white rounded-3xl border border-slate-200 p-8">
+            <BookOpen className="w-10 h-10 text-slate-400 mx-auto mb-2" />
+            <p className="text-slate-600 font-medium">Aún no hay libros cargados en el catálogo.</p>
+            <button
+              onClick={handleSeedData}
+              className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-semibold"
+            >
+              Cargar Libros de Muestra (Seed)
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {featuredBooks.map((book) => (
+              <div
+                key={book._id}
+                className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs hover:shadow-lg transition-all flex flex-col justify-between"
+              >
+                <div className="relative h-60 bg-slate-100 overflow-hidden">
+                  <img
+                    src={book.coverImage}
+                    alt={book.title}
+                    className="w-full h-full object-cover"
+                  />
+                  <span className="absolute top-3 left-3 bg-slate-900/80 backdrop-blur-md text-white text-[10px] font-bold px-2 py-0.5 rounded-md">
+                    {book.category}
+                  </span>
+                  {book.format !== 'ebook' && (
+                    <span className="absolute bottom-3 right-3 bg-emerald-500/90 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                      {book.stock} en bodega
+                    </span>
+                  )}
+                </div>
+
+                <div className="p-4 flex-1 flex flex-col justify-between">
+                  <div>
+                    <h3 className="font-bold text-slate-900 text-sm line-clamp-1">{book.title}</h3>
+                    <p className="text-xs text-indigo-600 font-medium">{book.author}</p>
+                    <div className="mt-2 text-base font-black text-slate-900">
+                      {formatPrice(book.price)}
+                    </div>
+                  </div>
+
+                  <div className="mt-4 pt-3 border-t border-slate-100">
+                    <Link
+                      href="/catalogo"
+                      className="w-full py-2 px-3 rounded-xl text-xs font-bold bg-slate-100 hover:bg-indigo-50 text-slate-800 hover:text-indigo-600 flex items-center justify-center gap-1.5 transition-colors"
+                    >
+                      <BookOpen className="w-3.5 h-3.5" />
+                      Ver en Catálogo
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* Roles & Quick Access Guide */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="bg-linear-to-r from-slate-900 to-indigo-950 rounded-3xl p-8 sm:p-12 text-white shadow-xl">
+          <div className="max-w-2xl mb-8">
+            <span className="text-amber-400 font-bold text-xs uppercase tracking-wider">
+              Acceso Rápido y Roles
+            </span>
+            <h2 className="text-2xl sm:text-3xl font-black mt-2">
+              Plataforma Multi-Rol con Tablero en Vivo
+            </h2>
+            <p className="text-slate-300 text-sm mt-2">
+              Prueba los tres perfiles preconfigurados para experimentar el ciclo completo de compra, alistamiento, despacho y administración:
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="p-6 rounded-2xl bg-slate-50 border border-slate-100 hover:shadow-md transition-shadow space-y-3">
-              <div className="w-12 h-12 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center">
-                <UtensilsCrossed className="w-6 h-6" />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-white/10 rounded-2xl p-5 border border-white/10">
+              <div className="flex items-center gap-2 mb-2 font-bold text-indigo-300">
+                <BookOpen className="w-5 h-5" />
+                1. Rol Cliente
               </div>
-              <h3 className="font-bold text-slate-900 text-base">Menú Universitario</h3>
-              <p className="text-xs text-slate-600 leading-relaxed">
-                Filtra por categorías (Hamburguesas, Salchipapas, Pizzas, Bebidas), agrega al carrito y gestiona cantidades en tiempo real.
+              <p className="text-xs text-slate-300 mb-3">
+                Explora el catálogo, agrega libros físicos o e-books, paga con PayPal o simulador y descarga tus libros digitales.
               </p>
+              <div className="text-[11px] font-mono bg-black/30 p-2 rounded-lg text-slate-300">
+                cliente@bookhub.com / cliente123
+              </div>
             </div>
 
-            <div className="p-6 rounded-2xl bg-slate-50 border border-slate-100 hover:shadow-md transition-shadow space-y-3">
-              <div className="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center">
-                <ShieldCheck className="w-6 h-6" />
+            <div className="bg-white/10 rounded-2xl p-5 border border-white/10">
+              <div className="flex items-center gap-2 mb-2 font-bold text-amber-300">
+                <Truck className="w-5 h-5" />
+                2. Rol Operador Logística
               </div>
-              <h3 className="font-bold text-slate-900 text-base">Pagos con PayPal</h3>
-              <p className="text-xs text-slate-600 leading-relaxed">
-                Integración con checkout de PayPal y modo de prueba simulada para crear la reserva y registrar el pedido automáticamente.
+              <p className="text-xs text-slate-300 mb-3">
+                Visualiza el Tablero Kanban en tiempo real, asigna guías de transportadora (Servientrega, FedEx) y actualiza despachos.
               </p>
+              <div className="text-[11px] font-mono bg-black/30 p-2 rounded-lg text-slate-300">
+                logistica@bookhub.com / logistica123
+              </div>
             </div>
 
-            <div className="p-6 rounded-2xl bg-slate-50 border border-slate-100 hover:shadow-md transition-shadow space-y-3">
-              <div className="w-12 h-12 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center">
-                <ChefHat className="w-6 h-6" />
+            <div className="bg-white/10 rounded-2xl p-5 border border-white/10">
+              <div className="flex items-center gap-2 mb-2 font-bold text-purple-300">
+                <Layers className="w-5 h-5" />
+                3. Rol Administrador
               </div>
-              <h3 className="font-bold text-slate-900 text-base">Tablero Kanban</h3>
-              <p className="text-xs text-slate-600 leading-relaxed">
-                Los cocineros arrastran los pedidos entre columnas: Pendiente, En preparación, Listo y Entregado de forma fluida.
+              <p className="text-xs text-slate-300 mb-3">
+                Crea nuevos libros, edita precios, gestiona inventario físico y supervisa todas las transacciones.
               </p>
-            </div>
-
-            <div className="p-6 rounded-2xl bg-slate-50 border border-slate-100 hover:shadow-md transition-shadow space-y-3">
-              <div className="w-12 h-12 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center">
-                <Zap className="w-6 h-6" />
+              <div className="text-[11px] font-mono bg-black/30 p-2 rounded-lg text-slate-300">
+                admin@bookhub.com / admin123
               </div>
-              <h3 className="font-bold text-slate-900 text-base">WebSockets en Vivo</h3>
-              <p className="text-xs text-slate-600 leading-relaxed">
-                Sincronización instantánea mediante Socket.io entre la cocina y los clientes sin necesidad de recargar la página.
-              </p>
             </div>
           </div>
         </div>

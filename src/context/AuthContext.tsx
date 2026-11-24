@@ -13,6 +13,7 @@ interface AuthContextType {
     password: string,
     role?: UserRole,
     address?: string,
+    city?: string,
     phone?: string
   ) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
@@ -69,13 +70,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     password: string,
     role: UserRole = 'cliente',
     address = '',
+    city = '',
     phone = ''
   ) => {
     try {
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password, role, address, phone }),
+        body: JSON.stringify({ name, email, password, role, address, city, phone }),
       });
       const data = await res.json();
       if (!res.ok) {

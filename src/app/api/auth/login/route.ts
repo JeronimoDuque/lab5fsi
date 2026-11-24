@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/db';
 import User from '@/models/User';
 import { signToken } from '@/lib/jwt';
+import { UserRole } from '@/types';
 
 export async function POST(req: NextRequest) {
   try {
@@ -36,7 +37,10 @@ export async function POST(req: NextRequest) {
       id: (user._id as unknown as string).toString(),
       name: user.name,
       email: user.email,
-      role: user.role,
+      role: user.role as UserRole,
+      address: user.address,
+      city: user.city,
+      phone: user.phone,
     };
 
     const token = signToken(authUser);
