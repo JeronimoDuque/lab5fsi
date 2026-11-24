@@ -5,9 +5,9 @@ const BASE_URL = process.env.TEST_BASE_URL || 'http://localhost:3000';
 // Helper para hacer login
 async function loginAs(page: any, role: 'cliente' | 'admin' | 'logistica') {
   const creds = {
-    cliente: { email: 'maria@bookhub.co', password: 'cliente123' },
-    admin: { email: 'admin@bookhub.co', password: 'admin123' },
-    logistica: { email: 'logistica@bookhub.co', password: 'logistica123' },
+    cliente: { email: 'cliente@bookhub.com', password: 'cliente123' },
+    admin: { email: 'admin@bookhub.com', password: 'admin123' },
+    logistica: { email: 'logistica@bookhub.com', password: 'logistica123' },
   };
   await page.goto(`${BASE_URL}/login`);
   await page.fill('input[type="email"]', creds[role].email);
@@ -32,7 +32,7 @@ test.describe('TC-002 · Catálogo de libros', () => {
     // Buscar selector de formato
     const formatSelect = page.locator('select').first();
     if (await formatSelect.isVisible()) {
-      await formatSelect.selectOption({ label: /ebook/i });
+      await formatSelect.selectOption({ value: 'ebook' });
       await page.waitForTimeout(500);
       const books = page.locator('[class*="card"],[class*="book"]');
       const count = await books.count();

@@ -220,7 +220,7 @@ app.prepare().then(() => {
 📚 BookHub E-Commerce Server corriendo exitosamente!
 👉 URL: http://${hostname}:${port}
 📡 WebSockets: Activos en ws://${hostname}:${port}
-🍃 MongoDB: ${process.env.MONGODB_URI || 'mongodb://localhost:27017/fastfoodudea'}
+🍃 MongoDB: ${process.env.MONGODB_URI ? 'Configurado' : 'No configurado'}
 📦 Roles: cliente | logistica | admin
 ======================================================
     `);

@@ -4,7 +4,7 @@ const BASE_URL = process.env.TEST_BASE_URL || 'http://localhost:3000';
 
 async function loginAsCliente(page: any) {
   await page.goto(`${BASE_URL}/login`);
-  await page.fill('input[type="email"]', 'maria@bookhub.co');
+  await page.fill('input[type="email"]', 'cliente@bookhub.com');
   await page.fill('input[type="password"]', 'cliente123');
   await page.click('button[type="submit"]');
   await page.waitForURL(/\/(catalogo|$)/, { timeout: 10000 });
